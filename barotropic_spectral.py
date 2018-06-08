@@ -1,8 +1,12 @@
 #!/usr/bin/env python
 import numpy as np
+from netCDF4 import Dataset
 from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
+from scipy.ndimage.filters import gaussian_filter
 from mpl_toolkits.basemap import Basemap
+
+from mpl_toolkits import basemap
 import spharm
 import os
 from hyperdiffusion import del4_filter, apply_des_filter
@@ -66,7 +70,7 @@ class Model:
         self.bmaps = create_basemaps(self.lons, self.lats)
         # Get the vorticity tendency forcing (if any) for integration
         self.forcing = forcing
-        
+        self.topography(ics['lats'], ics['lons']) 
         
     #==== Some simple dimensional functions ==========================================    
     def nlons(self):
@@ -74,8 +78,37 @@ class Model:
     def nlats(self):
         return len(self.lats)
     
-    
-    
+    def topography(self, lats, lons):
+        d = Dataset('elev.0.25-deg.nc')
+        #print(d.variables.keys())
+        topo_lat = np.flipud(d['lat'])
+        topo_lon = d['lon'][:]
+        topo_elev = np.flipud(d['data'][0])
+        
+        # Mask out oceans
+        idx = np.where(topo_elev < 0)
+        topo_elev[idx[0], idx[1]] = 0
+        
+        # Interpolate topography data to the known grid
+        new_lon, new_lat = np.meshgrid(self.lons, self.lats) 
+        self.topo = basemap.interp(topo_elev, topo_lon, topo_lat, new_lon, new_lat, order=1)
+        plt.title("Terrain")
+        plt.pcolormesh(new_lon, new_lat, self.topo)
+        cb = plt.colorbar()
+        cb.ax.set_ylabel("Elevation [m]")
+        plt.ylabel("Latitude")
+        plt.xlabel("Longitude")
+        plt.show()
+        self.topo = gaussian_filter(self.topo, 3)
+        plt.title("Terrain")
+        plt.pcolormesh(new_lon, new_lat, self.topo)
+        cb = plt.colorbar()
+        cb.ax.set_ylabel("Elevation [m]")
+        plt.ylabel("Latitude")
+        plt.xlabel("Longitude")
+        plt.show()
+ 
+        #stop 
     #==== Primary function: model integrator =========================================    
     def integrate(self):
         """ 
@@ -107,8 +140,8 @@ class Model:
             # Compute tendency with beta as only forcing
             vort_tend = -2. * NL.omega/(NL.Re**2) * d_dlamb(self.psip + self.psib, dlamb) - \
                         Jacobian(self.psip+self.psib, self.vortp+self.vort_bar, theta, dtheta, dlamb)
-
-
+            print("1 VORT TEND:")
+            print(np.max(vort_tend), np.min(vort_tend))
             # Apply hyperdiffusion if requested for smoothing
             if NL.diff_opt==1:
                 vort_tend -= del4_filter(self.vortp, self.lats, self.lons)
@@ -116,11 +149,26 @@ class Model:
                 vort_tend = apply_des_filter(self.s, self.vortp, vort_tend, self.ntrunc,
                                              t = (n+1) * NL.dt / 3600.).squeeze()
                         
-                    
+            print("2 VORT TEND:")
+            print(np.max(vort_tend), np.min(vort_tend))
+                 
             # Now add any imposed vorticity tendency forcing
             if self.forcing is not None:
                 vort_tend += self.forcing
 
+            # Now add any geographical vorticity tendency forcing
+            f = 2 * NL.omega * np.sin(theta)
+            print(f)
+            print(f * NL.g * NL.Rd * NL.Ts)
+            print(Jacobian(self.psip + self.psib, self.topo, theta, dtheta, dlamb))
+            vort_tend += -f * NL.g * NL.Rd * NL.Ts * \
+                         Jacobian(self.psip+self.psib, self.topo, theta, dtheta, dlamb) 
+            print("3 VORT TEND:")
+            print(np.max(vort_tend), np.min(vort_tend), np.mean(vort_tend))
+           
+            #plt.pcolormesh(vort_tend)
+            #plt.colorbar()
+            #plt.show()
             if n == 0:
                 # First step just do forward difference
                 # Vorticity at next time is just vort + vort_tend * dt

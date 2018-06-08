@@ -5,7 +5,7 @@ This module contains the variables used to run barotropic_spectral.py
 import os
     
 # Integration options
-dt = 900.                  # Timestep (seconds)
+dt = 600                  # Timestep (seconds)
 ntimes = 960               # Number of time steps to integrate
 plot_freq = 6              # Frequency of output plots in hours (if 0, no plots are made)
 M = None                   # Truncation (if None, defaults to # latitudes)
@@ -27,3 +27,5 @@ fourier_inc = 1            # Fourier increment for computing dampening eddy spon
 Re = 6378100.              # Radius of earth (m)
 omega = 7.292E-5           # Earth's angular momentum (s^-1)
 g = 9.81                   # Gravitational acceleration (m s^-2)
+Rd = 287.                  # Dry air gas constant
+Ts = 300.                  # Surface tempreature? K 
