@@ -5,12 +5,13 @@ This module contains the variables used to run barotropic_spectral.py
 import os
     
 # Integration options
-dt = 600                  # Timestep (seconds)
-ntimes = 960               # Number of time steps to integrate
+dt = 300                 # Timestep (seconds)
+ntimes = 3060               # Number of time steps to integrate
 plot_freq = 6              # Frequency of output plots in hours (if 0, no plots are made)
 M = None                   # Truncation (if None, defaults to # latitudes)
 r = 0.2                    # Coefficient for Robert Filter
-
+topo = 'flat'              # Topography (Earth, Mars, flat)
+smooth_topo = 1            # Smooth the topography by using a Guassian filter
 
 # I/O parameters
 figdir = os.path.join(os.getcwd(), 'figures')  # Figure directory

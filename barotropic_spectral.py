@@ -70,7 +70,7 @@ class Model:
         self.bmaps = create_basemaps(self.lons, self.lats)
         # Get the vorticity tendency forcing (if any) for integration
         self.forcing = forcing
-        self.topography(ics['lats'], ics['lons']) 
+        self.topography(ics['lats'], ics['lons'], planet=NL.topo) 
         
     #==== Some simple dimensional functions ==========================================    
     def nlons(self):
@@ -78,35 +78,60 @@ class Model:
     def nlats(self):
         return len(self.lats)
     
-    def topography(self, lats, lons):
-        d = Dataset('elev.0.25-deg.nc')
-        #print(d.variables.keys())
-        topo_lat = np.flipud(d['lat'])
-        topo_lon = d['lon'][:]
-        topo_elev = np.flipud(d['data'][0])
-        
-        # Mask out oceans
-        idx = np.where(topo_elev < 0)
-        topo_elev[idx[0], idx[1]] = 0
-        
-        # Interpolate topography data to the known grid
-        new_lon, new_lat = np.meshgrid(self.lons, self.lats) 
+    def topography(self, lats, lons, planet='Earth'):
+        if planet == 'Earth':
+            # From: http://research.jisao.washington.edu/data/elevation/
+            d = Dataset('elev.0.25-deg.nc')
+            #print(d.variables.keys())
+            topo_lat = np.flipud(d['lat'])
+            topo_lon = d['lon'][:]
+            topo_elev = np.flipud(d['data'][0])
+            
+            # Mask out oceans
+            idx = np.where(topo_elev < 0)
+            topo_elev[idx[0], idx[1]] = 0
+            
+            # Interpolate topography data to the known grid
+        elif planet == 'Mars':
+            d = np.load('mars.npz')
+            topo_lat = d['lats'][:,0][::-1]
+            topo_lon = d['lons'][0,1:]+180
+            topo_elev = d['data'][:,1:][::-1,:]                  
+        elif planet == 'flat':
+            d = Dataset('elev.0.25-deg.nc')
+            topo_lat = np.flipud(d['lat'])
+            topo_lon = d['lon'][:]
+            topo_elev = np.flipud(d['data'][0])
+            topo_elev[:,:] = 0
+        elif planet == 'isolated_mountain':
+            # From: http://research.jisao.washington.edu/data/elevation/
+            d = Dataset('elev.0.25-deg.nc')
+            #print(d.variables.keys())
+            topo_lat = np.flipud(d['lat'])
+            topo_lon = d['lon'][:]
+            topo_elev = np.flipud(d['data'][0])
+            
+            # Mask out oceans
+            idx = np.where(topo_elev < 4000)
+            topo_elev[idx[0], idx[1]] = 0
+            
+        new_lon, new_lat = np.meshgrid(self.lons, self.lats)
         self.topo = basemap.interp(topo_elev, topo_lon, topo_lat, new_lon, new_lat, order=1)
-        plt.title("Terrain")
-        plt.pcolormesh(new_lon, new_lat, self.topo)
-        cb = plt.colorbar()
-        cb.ax.set_ylabel("Elevation [m]")
-        plt.ylabel("Latitude")
-        plt.xlabel("Longitude")
-        plt.show()
-        self.topo = gaussian_filter(self.topo, 3)
-        plt.title("Terrain")
-        plt.pcolormesh(new_lon, new_lat, self.topo)
-        cb = plt.colorbar()
-        cb.ax.set_ylabel("Elevation [m]")
-        plt.ylabel("Latitude")
-        plt.xlabel("Longitude")
-        plt.show()
+        ##plt.title("Terrain")
+        #plt.pcolormesh(new_lon, new_lat, self.topo)
+        #cb = plt.colorbar()
+        #cb.ax.set_ylabel("Elevation [m]")
+        #plt.ylabel("Latitude")
+        #plt.xlabel("Longitude")
+        #plt.show()
+        self.topo = gaussian_filter(self.topo, NL.smooth_topo)
+        #plt.title("Terrain")
+        #plt.pcolormesh(new_lon, new_lat, self.topo)
+        #cb = plt.colorbar()
+        #cb.ax.set_ylabel("Elevation [m]")
+        #plt.ylabel("Latitude")
+        #plt.xlabel("Longitude")
+        #plt.show()
  
         #stop 
     #==== Primary function: model integrator =========================================    
@@ -127,76 +152,63 @@ class Model:
         dlamb = np.gradient(lamb)[1]
         dtheta = np.gradient(theta)[0]
 
-
         # Plot Initial Conditions
         if NL.plot_freq != 0:
             self.plot_figures(0)
 
-        
         # Now loop through the timesteps
         for n in range(NL.ntimes):
-            
-            # Here we actually compute vorticity tendency
-            # Compute tendency with beta as only forcing
-            vort_tend = -2. * NL.omega/(NL.Re**2) * d_dlamb(self.psip + self.psib, dlamb) - \
-                        Jacobian(self.psip+self.psib, self.vortp+self.vort_bar, theta, dtheta, dlamb)
-            print("1 VORT TEND:")
-            print(np.max(vort_tend), np.min(vort_tend))
-            # Apply hyperdiffusion if requested for smoothing
-            if NL.diff_opt==1:
-                vort_tend -= del4_filter(self.vortp, self.lats, self.lons)
-            elif NL.diff_opt==2:
-                vort_tend = apply_des_filter(self.s, self.vortp, vort_tend, self.ntrunc,
-                                             t = (n+1) * NL.dt / 3600.).squeeze()
-                        
-            print("2 VORT TEND:")
-            print(np.max(vort_tend), np.min(vort_tend))
-                 
-            # Now add any imposed vorticity tendency forcing
-            if self.forcing is not None:
-                vort_tend += self.forcing
-
-            # Now add any geographical vorticity tendency forcing
-            f = 2 * NL.omega * np.sin(theta)
-            print(f)
-            print(f * NL.g * NL.Rd * NL.Ts)
-            print(Jacobian(self.psip + self.psib, self.topo, theta, dtheta, dlamb))
-            vort_tend += -f * NL.g * NL.Rd * NL.Ts * \
-                         Jacobian(self.psip+self.psib, self.topo, theta, dtheta, dlamb) 
-            print("3 VORT TEND:")
-            print(np.max(vort_tend), np.min(vort_tend), np.mean(vort_tend))
            
-            #plt.pcolormesh(vort_tend)
-            #plt.colorbar()
-            #plt.show()
-            if n == 0:
-                # First step just do forward difference
-                # Vorticity at next time is just vort + vort_tend * dt
-                vortp_next = self.vortp + vort_tend * NL.dt
-            else:
-                # Otherwise do leapfrog
-                vortp_next = vortp_prev + vort_tend * 2 * NL.dt 
+            #if n > 150:
+            #    self.topo[:,:] = 0
+            # Leapfrog:
+            integration = 'rk4'
+            #integration = 'leapfrog'
+            if integration == 'leapfrog':
+                vort_tend = self.gettend(self.vortp, dlamb, dtheta, theta)
+                print(np.max(vort_tend), np.min(vort_tend))
+                if n == 0:
+                    # First step just do forward difference
+                    # Vorticity at next time is just vort + vort_tend * dt
+                    vortp_next = self.vortp + vort_tend * NL.dt
+                else:
+                    # Otherwise do leapfrog
+                    vortp_next = vortp_prev + vort_tend * 2 * NL.dt 
 
+                # Invert this new vort to get the new psi (or rather, uv winds)
+                # First go back to spectral space
+                vortp_spec = self.s.grdtospec(vortp_next)
+                div_spec = np.zeros(np.shape(vortp_spec))  # Divergence is zero in barotropic vorticity
 
-            # Invert this new vort to get the new psi (or rather, uv winds)
-            # First go back to spectral space
-            vortp_spec = self.s.grdtospec(vortp_next)
-            div_spec = np.zeros(np.shape(vortp_spec))  # Divergence is zero in barotropic vorticity
+                # Now use the spharm methods to update the u and v grid
+                self.up, self.vp = self.s.getuv(vortp_spec, div_spec)
+                self.psip, chi = self.s.getpsichi(self.up, self.vp)
 
-            # Now use the spharm methods to update the u and v grid
-            self.up, self.vp = self.s.getuv(vortp_spec, div_spec)
-            self.psip, chi = self.s.getpsichi(self.up, self.vp)
+                # Change vort_now to vort_prev
+                # and if not first step, add Robert filter to dampen out crazy modes
+                if n == 0:
+                    vortp_prev = self.vortp
+                else:
+                    vortp_prev = (1.-2.*NL.r)*self.vortp + NL.r*(vortp_next + vortp_prev)
+                    
+                # Update the vorticity
+                self.vortp = self.s.spectogrd(vortp_spec)
 
-            # Change vort_now to vort_prev
-            # and if not first step, add Robert filter to dampen out crazy modes
-            if n == 0:
-                vortp_prev = self.vortp
-            else:
-                vortp_prev = (1.-2.*NL.r)*self.vortp + NL.r*(vortp_next + vortp_prev)
-                
-            # Update the vorticity
-            self.vortp = self.s.spectogrd(vortp_spec)
-                
+            elif integration == 'rk4':
+                if n == 0:
+                    vortp_prev = 0
+                h = NL.dt
+                k1 = self.gettend(self.vortp, dlamb, dtheta, theta)
+                print("k1:",np.max(k1), np.min(k1))
+                k2 = self.gettend(self.vortp + 0.5 * h * k1, dlamb, dtheta, theta)
+                print("k2:",np.max(k2), np.min(k2))
+                k3 = self.gettend(self.vortp + 0.5 * h * k2, dlamb, dtheta, theta)
+                print("k3:",np.max(k3), np.min(k3))
+                k4 = self.gettend(self.vortp + h * k3, dlamb, dtheta, theta)
+                print("k4:",np.max(k4), np.min(k4))
+                vortp_next = vortp_prev + h*(k1 + 2*k2 + 2*k3 + k4)/6.
+                print("VORTP NEXT:",np.max(vortp_next), np.min(vortp_next))
+                stop 
             # Update the current time  
             cur_fhour = (n+1) * NL.dt / 3600.
             self.curtime = self.start_time + timedelta(hours = cur_fhour)
@@ -207,6 +219,33 @@ class Model:
                 print("Plotting hour", cur_fhour)
                 self.plot_figures(int(cur_fhour))
                 
+    def gettend(self,vortp, dlamb, dtheta, theta):
+        # self.psip, self.psib, self.vortp, self.vort_bar
+        # 
+        # Here we actually compute vorticity tendency
+        # Compute tendency with beta as only forcing
+        vort_tend = -2. * NL.omega/(NL.Re**2) * d_dlamb(self.psip + self.psib, dlamb) - \
+                        Jacobian(self.psip+self.psib, vortp+self.vort_bar, theta, dtheta, dlamb)
+            
+        # Apply hyperdiffusion if requested for smoothing
+        if NL.diff_opt==1:
+            vort_tend -= del4_filter(vortp, self.lats, self.lons)
+        elif NL.diff_opt==2:
+            vort_tend = apply_des_filter(self.s, vortp, vort_tend, self.ntrunc,
+                                             t = (n+1) * NL.dt / 3600.).squeeze()
+                    
+        # Now add any imposed vorticity tendency forcing
+        if self.forcing is not None:
+            vort_tend += self.forcing
+
+        # Now add any geographical vorticity tendency forcing
+        f = 2 * NL.omega * np.sin(theta)
+        vort_tend += -(f * \
+                     Jacobian(self.psip+self.psib, self.topo, theta, dtheta, dlamb)) / \
+                     6000. 
+
+        return vort_tend
+
 
     #==== Plotting utilities =========================================================
     def plot_figures(self, n, winds='total', vorts='total', psis='pert', showforcing=True,
@@ -240,8 +279,16 @@ class Model:
         fig.subplots_adjust(bottom=0.2, left=0.05, right=0.95)
         
         xx, yy = self.bmaps['global_x'], self.bmaps['global_y']
-        cs = ax.contourf(xx, yy, vort, vortlevs, cmap=plt.cm.RdBu_r, extend='both')
-        self.bmaps['global'].drawcoastlines()
+        plt.pcolormesh(xx, yy, self.topo, alpha=1, cmap='gist_earth', vmin=np.min(self.topo), vmax=np.max(self.topo))
+        cs = ax.contourf(xx, yy, vort, vortlevs, cmap=plt.cm.RdBu_r, extend='both', alpha=0.5)
+        plt.xlim(xx.min(), xx.max())
+        plt.ylim(yy.min(), yy.max())
+        if NL.topo == 'Earth':
+            self.bmaps['global'].drawcoastlines()
+        parallels = np.arange(-70.,81,10.)
+        meridians = np.arange(10.,351.,20.)
+        self.bmaps['global'].drawmeridians(meridians,labels=[True,False,False,True])
+        self.bmaps['global'].drawparallels(parallels,labels=[True,False,False,True])
         ax.quiver(xx[::2,::2], yy[::2,::2], u[::2,::2], v[::2,::2])
         # Plot the forcing
         if showforcing and self.forcing is not None:
@@ -342,14 +389,17 @@ def test_case():
     lats = np.arange(-87.5, 88, 2.5)[::-1]
     lamb, theta = np.meshgrid(lons * np.pi/180., lats * np.pi/180.)
     # Mean state: zonal extratropical jets
-    ubar = 25 * np.cos(theta) - 30 * np.cos(theta)**3 + 300 * np.sin(theta)**2 * np.cos(theta)**6
+    mag = 25
+    ubar = mag * np.cos(theta) - 30 * np.cos(theta)**3 + 300 * np.sin(theta)**2 * np.cos(theta)**6
+    #ubar[:,:] = 20
     vbar = np.zeros(np.shape(ubar))
     # Initial perturbation: sinusoidal vorticity perturbations
     A = 1.5 * 8e-5 # vorticity perturbation amplitude
-    m = 4          # zonal wavenumber
+    m = 2          # zonal wavenumber
     theta0 = np.deg2rad(45)  # center lat = 45 N
-    thetaW = np.deg2rad(15)
+    thetaW = np.deg2rad(15) #15
     vort_pert = 0.5*A*np.cos(theta)*np.exp(-((theta-theta0)/thetaW)**2)*np.cos(m*lamb)
+    #vort_pert[:,:] = 0
     # Get U' and V' from this vorticity perturbation
     s = spharm.Spharmt(len(lons), len(lats), gridtype='regular', legfunc='computed', rsphere=NL.Re)
     uprime, vprime = s.getuv(s.grdtospec(vort_pert), np.zeros(np.shape(s.grdtospec(vort_pert))))
@@ -372,7 +422,7 @@ def test_case():
     lat_i = np.where(lats==35.)[0][0]
     lon_i = np.where(lons==160.)[0][0]
     forcing[lat_i:lat_i+10, lon_i:lon_i+10] = g*amplitude
-
+    forcing[:,:] = 0
     # 3) INTEGRATE!
     model = Model(ics, forcing=forcing)
     model.integrate()
