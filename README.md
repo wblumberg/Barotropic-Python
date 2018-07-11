@@ -10,6 +10,8 @@ Written by Luke Madaus (5/2012) - University of Washington
 
 Restructured by Nick Weber (10/2017) - University of Washington
 
+Features added by Greg Blumberg and Tim Supinie (7/2017) - University of Oklahoma
+
 -----------------------------------------------------------------
 
 __**Requires**__:
@@ -19,6 +21,7 @@ __**Requires**__:
   - netCDF4 -- Python interface to netCDF4 library  
   - numpy, datetime, matplotlib  
 
+These can be obtained through conda (e.g., `conda install spharm` and `conda install netcdf4`) 
 
 Based on the Held-Suarez Barotropic model, including hyperdiffusion.  
 A brief description of their model may be found at:  
