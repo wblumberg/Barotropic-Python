@@ -41,3 +41,4 @@ __**Contents**__:
  - **``hyperdiffusion.py``** -- contains functions for applying hyperdiffusion to the vorticity  
  tendecy equation (helps prevent the model from blowing up)
 
+ To run the model use: `python barotropic_spectral.py`
