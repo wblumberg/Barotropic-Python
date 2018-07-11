@@ -63,7 +63,8 @@ class Model:
         # Convert the spectral vorticity to grid
         self.vort_bar = self.s.spectogrd(vortb_spec)             # MEAN RELATIVE VORTICITY
         self.vortp = self.s.spectogrd(vortp_spec)                # PERTURBATION RELATIVE VORTICITY
-        
+        self.tot_ke = []
+        self.expected_ke = np.sum(np.power(self.ub + self.up, 2) + np.power(self.vb + self.vp, 2)) 
         
         # 3) STORE A COUPLE MORE VARIABLES
         # Map projections for plotting
@@ -186,6 +187,7 @@ class Model:
 
                 # Change vort_now to vort_prev
                 # and if not first step, add Robert filter to dampen out crazy modes
+                self.tot_ke.append(np.sum(np.power(self.up+self.ub,2) + np.power(self.vp+self.vb,2)))
                 if n == 0:
                     vortp_prev = self.vortp
                 else:
@@ -427,6 +429,13 @@ def test_case():
     model = Model(ics, forcing=forcing)
     model.integrate()
     print('TOTAL INTEGRATION TIME: {:.02f} minutes'.format((time()-start)/60.))
+    #plt.plot(np.arange(len(model.tot_ke)), (1 - model.tot_ke/model.expected_ke) * 100)
+    plt.plot(np.arange(len(model.tot_ke)), model.tot_ke, 'o-')
+    plt.title('Model Kinetic Energy Error vs. Time Step')
+    plt.xlabel("Model Time Step")
+    plt.ylabel(u'Model Kinetic Energy Error [%]')
+    print("expected kinetic energy:", model.expected_ke)
+    plt.show()
 
 if __name__ == '__main__':
     test_case()
