@@ -18,10 +18,10 @@ figdir = os.path.join(os.getcwd(), 'figures')  # Figure directory
 
 
 # Diffusion parameters
-diff_opt = 1               # Hyperdiffusion option (0 = none, 1 = del^4, 2 = DES)
-k = 2.338e16               # Diffusion coefficient for del^4 hyperdiffusion (diff_opt=1)
-nu = 1E-4                  # Dampening coefficient for DES hyperdiffusion (diff_opt=2)
-fourier_inc = 1            # Fourier increment for computing dampening eddy sponge (diff_opt=2)
+diff_opt = 'des'           # Hyperdiffusion option ('off' = none, 'del4' = del^4, 'des' = DES)
+k = 2.338e16               # Diffusion coefficient for del^4 hyperdiffusion (diff_opt='del4')
+nu = 1E-4                  # Dampening coefficient for DES hyperdiffusion (diff_opt='des')
+fourier_inc = 1            # Fourier increment for computing dampening eddy sponge (diff_opt='des')
 
 
 # Constants

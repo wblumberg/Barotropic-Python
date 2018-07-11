@@ -228,9 +228,9 @@ class Model:
                         Jacobian(self.psip+self.psib, vortp+self.vort_bar, theta, dtheta, dlamb)
             
         # Apply hyperdiffusion if requested for smoothing
-        if NL.diff_opt==1:
+        if NL.diff_opt=='del4':
             vort_tend -= del4_filter(vortp, self.lats, self.lons)
-        elif NL.diff_opt==2:
+        elif NL.diff_opt=='des':
             vort_tend = apply_des_filter(self.s, vortp, vort_tend, self.ntrunc,
                                              t = (n+1) * NL.dt / 3600.).squeeze()
                     
