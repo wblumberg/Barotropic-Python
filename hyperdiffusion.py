@@ -90,7 +90,6 @@ def second_derivative(data, delta, axis=0):
         shp = list(data.shape)
         shp[axis] -= 1
         if np.shape(delta) != tuple(shp):
-            print(np.shape(delta), tuple(shp))
             raise ValueError('input <delta> should has invalid shape')
     else:
         raise ValueError('input <delta> should be value or array')
@@ -151,7 +150,6 @@ def fourth_derivative(data, delta, axis=0):
         shp = list(data.shape)
         shp[axis] -= 1
         if np.shape(delta) != tuple(shp):
-            print(np.shape(delta), tuple(shp))
             raise ValueError('input <delta> should has invalid shape')
             raise ValueError('input <delta> should has invalid shape')
     else:
@@ -225,15 +223,12 @@ def apply_des_filter(s, cur_vort, vort_tend, ntrunc, t=0):
     """ Add spectral hyperdiffusion and return a new
     vort_tend """
     # Convert to spectral grids
-    print('vorticity:', np.shape(cur_vort))
     vort_spec = s.grdtospec(cur_vort)
-    print('spectral vorticity:', np.shape(vort_spec))
     vort_tend_spec = s.grdtospec(vort_tend)
     total_length = vort_spec.shape[0]
 
     # Reshape to 2-d array
     vort_spec = np.reshape(vort_spec,(ntrunc,-1))
-    print('reshaped:', np.shape(vort_spec))
     vort_tend_spec = np.reshape(vort_tend_spec,(ntrunc,-1))
     new_vort_tend_spec = np.array(vort_tend_spec,dtype=np.complex)
 
