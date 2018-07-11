@@ -10,7 +10,9 @@ ntimes = 3060               # Number of time steps to integrate
 plot_freq = 6              # Frequency of output plots in hours (if 0, no plots are made)
 M = None                   # Truncation (if None, defaults to # latitudes)
 r = 0.2                    # Coefficient for Robert Filter
-topo = 'flat'              # Topography (Earth, Mars, flat)
+topo = 'isolated_mountain'              # Topography (Earth, Mars, flat)
+#topo = 'flat'
+#topo = 'block'
 smooth_topo = 1            # Smooth the topography by using a Guassian filter
 
 # I/O parameters

@@ -115,7 +115,20 @@ class Model:
             # Mask out oceans
             idx = np.where(topo_elev < 4000)
             topo_elev[idx[0], idx[1]] = 0
-            
+        elif planet == 'block':
+            # From: http://research.jisao.washington.edu/data/elevation/
+            d = Dataset('elev.0.25-deg.nc')
+            #print(d.variables.keys())
+            topo_lat = np.flipud(d['lat'])
+            topo_lon = d['lon'][:]
+            topo_elev = np.flipud(d['data'][0])
+            #print(topo_lat.shape, topo_lon.shape, topo_elev.shape)
+            # Mask out oceans
+            #idx = np.where(topo_elev < 4000)
+            topo_elev[:, :] = 0
+            idx = np.where((topo_lon > 30) & (topo_lon < 60))
+            topo_elev[:, idx[0]] = 1000
+ 
         new_lon, new_lat = np.meshgrid(self.lons, self.lats)
         self.topo = basemap.interp(topo_elev, topo_lon, topo_lat, new_lon, new_lat, order=1)
         ##plt.title("Terrain")
