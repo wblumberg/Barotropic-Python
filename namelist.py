@@ -14,6 +14,8 @@ topo = 'isolated_mountain'              # Topography (Earth, Mars, flat)
 #topo = 'flat'
 #topo = 'block'
 smooth_topo = 1            # Smooth the topography by using a Guassian filter
+integration_method = 'leapfrog'
+integration_method = 'rk4'
 
 # I/O parameters
 figdir = os.path.join(os.getcwd(), 'figures')  # Figure directory

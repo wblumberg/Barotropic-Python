@@ -173,13 +173,11 @@ class Model:
         # Now loop through the timesteps
         for n in range(NL.ntimes):
            
-            #if n > 150:
-            #    self.topo[:,:] = 0
+#           if n > 1000:
+#               self.topo[:,:] = 0
             # Leapfrog:
-            integration = 'rk4'
-            #integration = 'leapfrog'
-            if integration == 'leapfrog':
-                vort_tend = self.gettend(self.vortp, dlamb, dtheta, theta)
+            if NL.integration_method == 'leapfrog':
+                vort_tend = self.gettend(self.vortp, dlamb, dtheta, theta, n)
                 print(np.max(vort_tend), np.min(vort_tend))
                 if n == 0:
                     # First step just do forward difference
@@ -187,43 +185,45 @@ class Model:
                     vortp_next = self.vortp + vort_tend * NL.dt
                 else:
                     # Otherwise do leapfrog
-                    vortp_next = vortp_prev + vort_tend * 2 * NL.dt 
+                    vortp_next = vortp_prev + vort_tend * 2 * NL.dt
 
-                # Invert this new vort to get the new psi (or rather, uv winds)
-                # First go back to spectral space
-                vortp_spec = self.s.grdtospec(vortp_next)
-                div_spec = np.zeros(np.shape(vortp_spec))  # Divergence is zero in barotropic vorticity
+            elif NL.integration_method == 'rk4':
+                h = NL.dt
+                # runge kutta requires 4 estimates of the tendency equation 
+                vortp = self.vortp
 
-                # Now use the spharm methods to update the u and v grid
-                self.up, self.vp = self.s.getuv(vortp_spec, div_spec)
-                self.psip, chi = self.s.getpsichi(self.up, self.vp)
+                k1 = self.gettend(vortp, dlamb, dtheta, theta, n)
+#               print("k1:",np.max(k1), np.min(k1))
+                k2 = self.gettend(vortp + 0.5 * h * k1, dlamb, dtheta, theta, n)
+#               print("k2:",np.max(k2), np.min(k2))
+                k3 = self.gettend(vortp + 0.5 * h * k2, dlamb, dtheta, theta, n)
+#               print("k3:",np.max(k3), np.min(k3))
+                k4 = self.gettend(vortp + h * k3, dlamb, dtheta, theta, n)
+#               print("k4:",np.max(k4), np.min(k4))
+                vortp_next = vortp + h*(k1 + 2*k2 + 2*k3 + k4)/6.
+#               print("VORTP NEXT:",np.max(vortp_next), np.min(vortp_next))
 
-                # Change vort_now to vort_prev
-                # and if not first step, add Robert filter to dampen out crazy modes
-                self.tot_ke.append(np.sum(np.power(self.up+self.ub,2) + np.power(self.vp+self.vb,2)))
+            # First go back to spectral space
+            vortp_spec = self.s.grdtospec(vortp_next)
+            div_spec = np.zeros(np.shape(vortp_spec))  # Divergence is zero in barotropic vorticity
+
+            # Now use the spharm methods to update the u and v grid
+            self.up, self.vp = self.s.getuv(vortp_spec, div_spec)
+            self.psip, chi = self.s.getpsichi(self.up, self.vp)
+
+            # Update the vorticity
+            self.vortp = self.s.spectogrd(vortp_spec)
+
+            # Invert this new vort to get the new psi (or rather, uv winds)
+            self.tot_ke.append(np.sum(np.power(self.up+self.ub,2) + np.power(self.vp+self.vb,2)))
+            # Change vort_now to vort_prev
+            # and if not first step, add Robert filter to dampen out crazy modes
+            if NL.integration_method == 'leapfrog':
                 if n == 0:
                     vortp_prev = self.vortp
                 else:
                     vortp_prev = (1.-2.*NL.r)*self.vortp + NL.r*(vortp_next + vortp_prev)
-                    
-                # Update the vorticity
-                self.vortp = self.s.spectogrd(vortp_spec)
 
-            elif integration == 'rk4':
-                if n == 0:
-                    vortp_prev = 0
-                h = NL.dt
-                k1 = self.gettend(self.vortp, dlamb, dtheta, theta)
-                print("k1:",np.max(k1), np.min(k1))
-                k2 = self.gettend(self.vortp + 0.5 * h * k1, dlamb, dtheta, theta)
-                print("k2:",np.max(k2), np.min(k2))
-                k3 = self.gettend(self.vortp + 0.5 * h * k2, dlamb, dtheta, theta)
-                print("k3:",np.max(k3), np.min(k3))
-                k4 = self.gettend(self.vortp + h * k3, dlamb, dtheta, theta)
-                print("k4:",np.max(k4), np.min(k4))
-                vortp_next = vortp_prev + h*(k1 + 2*k2 + 2*k3 + k4)/6.
-                print("VORTP NEXT:",np.max(vortp_next), np.min(vortp_next))
-                stop 
             # Update the current time  
             cur_fhour = (n+1) * NL.dt / 3600.
             self.curtime = self.start_time + timedelta(hours = cur_fhour)
@@ -234,7 +234,7 @@ class Model:
                 print("Plotting hour", cur_fhour)
                 self.plot_figures(int(cur_fhour))
                 
-    def gettend(self,vortp, dlamb, dtheta, theta):
+    def gettend(self,vortp, dlamb, dtheta, theta, n):
         # self.psip, self.psib, self.vortp, self.vort_bar
         # 
         # Here we actually compute vorticity tendency
