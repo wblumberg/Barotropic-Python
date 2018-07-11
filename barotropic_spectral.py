@@ -406,15 +406,15 @@ def test_case():
     # Mean state: zonal extratropical jets
     mag = 25
     ubar = mag * np.cos(theta) - 30 * np.cos(theta)**3 + 300 * np.sin(theta)**2 * np.cos(theta)**6
-    #ubar[:,:] = 20
+#   ubar[:,:] = 0
     vbar = np.zeros(np.shape(ubar))
     # Initial perturbation: sinusoidal vorticity perturbations
     A = 1.5 * 8e-5 # vorticity perturbation amplitude
-    m = 2          # zonal wavenumber
+    m = 4          # zonal wavenumber
     theta0 = np.deg2rad(45)  # center lat = 45 N
     thetaW = np.deg2rad(15) #15
     vort_pert = 0.5*A*np.cos(theta)*np.exp(-((theta-theta0)/thetaW)**2)*np.cos(m*lamb)
-    #vort_pert[:,:] = 0
+    vort_pert[:,:] = 0
     # Get U' and V' from this vorticity perturbation
     s = spharm.Spharmt(len(lons), len(lats), gridtype='regular', legfunc='computed', rsphere=NL.Re)
     uprime, vprime = s.getuv(s.grdtospec(vort_pert), np.zeros(np.shape(s.grdtospec(vort_pert))))

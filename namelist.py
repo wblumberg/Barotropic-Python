@@ -6,7 +6,7 @@ import os
     
 # Integration options
 dt = 300                 # Timestep (seconds)
-ntimes = 3060               # Number of time steps to integrate
+ntimes = 1360               # Number of time steps to integrate
 plot_freq = 6              # Frequency of output plots in hours (if 0, no plots are made)
 M = None                   # Truncation (if None, defaults to # latitudes)
 r = 0.2                    # Coefficient for Robert Filter
