@@ -33,7 +33,7 @@ advect along this vorticity using the barotropic vorticity equation. As this mod
 uses "real" atmospheric data (which is not barotropic), the results are rarely stable  
 beyond ~5 days of forecasting.
 
-Current problems with the model is that kinetic energy is not conserved when terrain is added.  If you know why this is, please contribute to the code by opening up a Github issue.
+Current problems with the model is that kinetic energy is not conserved as well when terrain is added.  If you know why this is, please contribute to the code by opening up a Github issue.
 
 -----------------------------------------------------------------
 
