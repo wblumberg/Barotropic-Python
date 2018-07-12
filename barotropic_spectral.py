@@ -414,8 +414,8 @@ def test_case():
     ubar = NL.mag * np.cos(theta) - 30 * np.cos(theta)**3 + 300 * np.sin(theta)**2 * np.cos(theta)**6
     vbar = np.zeros(np.shape(ubar))
     # Initial perturbation: sinusoidal vorticity perturbations
-    theta0 = np.deg2rad(NL.theta0)  # center lat = 45 N
-    thetaW = np.deg2rad(NL.thetaW) #15
+    theta0 = np.deg2rad(NL.pert_center_lat)  # center lat = 45 N
+    thetaW = np.deg2rad(NL.pert_width) #15
     vort_pert = 0.5*NL.A*np.cos(theta)*np.exp(-((theta-theta0)/thetaW)**2)*np.cos(NL.m*lamb)
     
     # Get U' and V' from this vorticity perturbation

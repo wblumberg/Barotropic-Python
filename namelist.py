@@ -16,11 +16,11 @@ integration_method = 'rk4'  # Integration method ('leapfrog', 'rk4')
 fluid_height = 10000         # Fluid height (m).
 
 # Idealized Initial Conditions (for idealized flow...future models will allow for realistic initial conditions)
-mag = 0 # Max base state zonal wind speed.
+mag = 20 # Max base state zonal wind speed.
 A = 1.5 * 8e-5 # The vorticity perturbation of the flow (set to 0 for no perturbation).
-m = 1 # Zonal wavenumber around the sphere for the perturbation.
-theta0 = 45 # Center latitude of the sinusoidal vorticity perturbation
-thetaW = 15 # Latitudinal width of the vorticity perturbation
+m = 4 # Zonal wavenumber around the sphere for the perturbation.
+pert_center_lat = 45 # Center latitude of the sinusoidal vorticity perturbation
+pert_width = 15 # Latitudinal width of the vorticity perturbation
 
 # Extra vorticity forcing
 use_forcing = False         # Add a synthetic hurricane or extra forcing to the model.
