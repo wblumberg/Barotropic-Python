@@ -21,7 +21,7 @@ __**Requires**__:
   - netCDF4 -- Python interface to netCDF4 library  
   - numpy, datetime, matplotlib  
 
-These can be obtained through conda (e.g., `conda install spharm` and `conda install netcdf4` and `conda install basemap`).  Numpy, datetime, and matplotlib come default with the Anaconda Python distribution.
+These can be obtained through conda (e.g., `conda install -c conda-forge pyspharm` and `conda install -c anaconda netcdf4` and `conda install basemap`).  Numpy, datetime, and matplotlib come default with the Anaconda Python distribution.
 
 Based on the Held-Suarez Barotropic model, including hyperdiffusion.  
 A brief description of their model may be found at:  
