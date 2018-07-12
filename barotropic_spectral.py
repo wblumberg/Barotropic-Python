@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from scipy.ndimage.filters import gaussian_filter
 from mpl_toolkits.basemap import Basemap
 
+import sys
 from mpl_toolkits import basemap
 import spharm
 import os
@@ -173,8 +174,8 @@ class Model:
         # Now loop through the timesteps
         for n in range(NL.ntimes):
            
-#           if n > 1000:
-#               self.topo[:,:] = 0
+            #if n > 1000:
+            #    self.topo[:,:] = 0
             # Leapfrog:
             if NL.integration_method == 'leapfrog':
                 vort_tend = self.gettend(self.vortp, dlamb, dtheta, theta, n)
@@ -202,6 +203,12 @@ class Model:
 #               print("k4:",np.max(k4), np.min(k4))
                 vortp_next = vortp + h*(k1 + 2*k2 + 2*k3 + k4)/6.
 #               print("VORTP NEXT:",np.max(vortp_next), np.min(vortp_next))
+    
+            if np.isnan(vortp_next).any():
+                print("BOOM.")
+                print("Looks like your model blew up.  Change the dt or try a different model!")
+                print("The barotropic model will exit now.")
+                sys.exit()
 
             # First go back to spectral space
             vortp_spec = self.s.grdtospec(vortp_next)
@@ -248,17 +255,17 @@ class Model:
         elif NL.diff_opt=='des':
             vort_tend = apply_des_filter(self.s, vortp, vort_tend, self.ntrunc,
                                              t = (n+1) * NL.dt / 3600.).squeeze()
-                    
+        
         # Now add any imposed vorticity tendency forcing
-        if self.forcing is not None:
+        print(n, NL.forcing_time)
+        if NL.use_forcing is True and n < NL.forcing_time:
             vort_tend += self.forcing
 
         # Now add any geographical vorticity tendency forcing
         f = 2 * NL.omega * np.sin(theta)
-        vort_tend += -(f * \
+        vort_tend += -((f) * \
                      Jacobian(self.psip+self.psib, self.topo, theta, dtheta, dlamb)) / \
-                     6000. 
-
+                     NL.fluid_height 
         return vort_tend
 
 
@@ -404,17 +411,13 @@ def test_case():
     lats = np.arange(-87.5, 88, 2.5)[::-1]
     lamb, theta = np.meshgrid(lons * np.pi/180., lats * np.pi/180.)
     # Mean state: zonal extratropical jets
-    mag = 25
-    ubar = mag * np.cos(theta) - 30 * np.cos(theta)**3 + 300 * np.sin(theta)**2 * np.cos(theta)**6
-#   ubar[:,:] = 0
+    ubar = NL.mag * np.cos(theta) - 30 * np.cos(theta)**3 + 300 * np.sin(theta)**2 * np.cos(theta)**6
     vbar = np.zeros(np.shape(ubar))
     # Initial perturbation: sinusoidal vorticity perturbations
-    A = 1.5 * 8e-5 # vorticity perturbation amplitude
-    m = 4          # zonal wavenumber
-    theta0 = np.deg2rad(45)  # center lat = 45 N
-    thetaW = np.deg2rad(15) #15
-    vort_pert = 0.5*A*np.cos(theta)*np.exp(-((theta-theta0)/thetaW)**2)*np.cos(m*lamb)
-    vort_pert[:,:] = 0
+    theta0 = np.deg2rad(NL.theta0)  # center lat = 45 N
+    thetaW = np.deg2rad(NL.thetaW) #15
+    vort_pert = 0.5*NL.A*np.cos(theta)*np.exp(-((theta-theta0)/thetaW)**2)*np.cos(NL.m*lamb)
+    
     # Get U' and V' from this vorticity perturbation
     s = spharm.Spharmt(len(lons), len(lats), gridtype='regular', legfunc='computed', rsphere=NL.Re)
     uprime, vprime = s.getuv(s.grdtospec(vort_pert), np.zeros(np.shape(s.grdtospec(vort_pert))))
@@ -427,28 +430,32 @@ def test_case():
            'lats'   : lats,
            'start_time' : datetime(2017,1,1,0)}
 
-    # 2) LET'S ALSO FEED IN A GAUSSIAN NH RWS FORCING
-    amplitude = 10e-10              # s^-2
+    # 2) LET'S ALSO FEED IN A GAUSSIAN NH RWS FORCING (CAN BE USED TO CREATE SYNTEHTIC HURRICANES)
+    amplitude = NL.forcing_amp              # s^-2
     forcing = np.zeros(np.shape(ubar))
     x, y = np.meshgrid(np.linspace(-1,1,10), np.linspace(-1,1,10))
     d = np.sqrt(x*x+y*y)
     sigma, mu = 0.5, 0.0
     g = np.exp(-( (d-mu)**2 / ( 2.0 * sigma**2 ) ) )   # GAUSSIAN CURVE
-    lat_i = np.where(lats==35.)[0][0]
-    lon_i = np.where(lons==160.)[0][0]
-    forcing[lat_i:lat_i+10, lon_i:lon_i+10] = g*amplitude
-    forcing[:,:] = 0
+    source_lat = NL.forcing_lat; source_lon = NL.forcing_lon # The location of the forcing
+    lat_i = np.where(lats==source_lat)[0][0]
+    lon_i = np.where(lons==source_lon)[0][0]
+    if NL.use_forcing == True:
+        forcing[lat_i:lat_i+10, lon_i:lon_i+10] = g*amplitude
+    else:
+        forcing[:,:] = 0
+
     # 3) INTEGRATE!
     model = Model(ics, forcing=forcing)
     model.integrate()
     print('TOTAL INTEGRATION TIME: {:.02f} minutes'.format((time()-start)/60.))
-    #plt.plot(np.arange(len(model.tot_ke)), (1 - model.tot_ke/model.expected_ke) * 100)
-    plt.plot(np.arange(len(model.tot_ke)), model.tot_ke, 'o-')
+    plt.plot((NL.dt * np.arange(len(model.tot_ke)))/3600., (1 - model.tot_ke/model.expected_ke) * 100)
+    #plt.plot(np.arange(len(model.tot_ke)), model.tot_ke, 'o-')
     plt.title('Model Kinetic Energy Error vs. Time Step')
-    plt.xlabel("Model Time Step")
+    plt.xlabel("Model Time [hr]")
     plt.ylabel(u'Model Kinetic Energy Error [%]')
-    print("expected kinetic energy:", model.expected_ke)
-    plt.show()
+    print("Expected Kinetic Energy [m^2/s^2]:", model.expected_ke)
+    plt.savefig(NL.figdir + '/model_ke_ts.png', bbox_inches='tight')
 
 if __name__ == '__main__':
     test_case()
