@@ -31,7 +31,8 @@ The basic premise of the code is to take upper-level u and v winds from any data
 (forecast or analysis), extract the non-divergent component, compute vorticity, and  
 advect along this vorticity using the barotropic vorticity equation. As this model  
 uses "real" atmospheric data (which is not barotropic), the results are rarely stable  
-beyond ~5 days of forecasting.
+beyond ~5 days of forecasting.  The plots (global and North America (regional) are output 
+into a figures/ directory by default
 
 Current problems with the model is that kinetic energy is not conserved as well when terrain is added.  If you know why this is, please contribute to the code by opening up a Github issue.
 
