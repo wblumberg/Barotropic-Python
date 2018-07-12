@@ -52,7 +52,7 @@ __**Contents**__:
  
  These options may be changed in the namelist.py file that comes with the program.
  
- - Add terrain into the model (Earth, Mars, flat, isolated mountain, longitudinal block)
+ - Add terrain into the model and smoothing of the terrain (Earth, Mars, flat, isolated mountain, longitudinal block)
  - Change integration method (RK4, leapfrog).
  - Fluid height.
  - Time step and plot frequency.
